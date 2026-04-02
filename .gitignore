@@ -1,0 +1,15 @@
+venv
+.venv
+.vscode
+Data/
+Lab*/*.png
+Lab*/*.csv
+Lab*/*.txt
+Lab*/*.csv
+Lab*/*.svg
+Lab*/*.exe
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/.DS_Store

@@ -1,0 +1,126 @@
+Bioinformatics Algorithms and Techniques
+Final Programming Project: A Small Sequence Mapper
+Contents
+1 Introduction ...................................................................................... 1
+2 Project Description .............................................................................. 1
+3 Program Interface and Data ................................................................... 2
+4 Algorithmic Components ....................................................................... 3
+5 Submission and Evaluation Criteria .......................................................... 3
+1 Introduction
+The goal of this final programming project is to implement a simple sequence mapper that aligns
+short sequencing reads against a reference genome. Sequence mapping is a fundamental task in
+bioinformatics and constitutes the first step in many genomic analysis pipelines. In this project,
+students will design and implement a program that takes a set of sequencing reads in FASTQ
+format and aligns them to a reference genome provided in FASTA format. The mapper must
+identify approximate matches between each read and the genome, allowing a small number of
+sequencing errors, as measured by edit distance. The resulting alignments must then be reported
+in a simplified SAM-like format.
+The project aims to integrate several algorithmic concepts studied throughout the course. In par-
+ticular, students will need to consider efficient string-processing techniques, approximate string-
+matching algorithms, and appropriate data structures for handling large biological datasets. Dif-
+ferent implementation strategies are possible, ranging from straightforward approaches that scan
+the genome directly to more sophisticated solutions that rely on indexing structures or seed-and-
+extend techniques. Beyond correctness, the project also emphasizes algorithmic efficiency and
+careful implementation. Students are encouraged to experiment with different approaches and
+data structures to balance accuracy, runtime, and memory usage when processing real genomic
+data.
+2 Project Description
+The goal of this project is to implement a simple sequence mapper that aligns short sequencing
+reads against a reference genome. The program must read sequencing reads from a FASTQ file,
+search for occurrences of these reads in a reference genome provided in FASTA format, and re-
+port the resulting alignments in SAM format. The project focuses on the algorithmic problem of
+approximate string matching between sequencing reads and a long genomic reference sequence.
+Given a read P of length m and a reference genome G of length n, the program must identify posi-
+tions in the genome where the read aligns with at most k errors. In this project, errors correspond
+to the edit distance between the read and a substring of the reference genome (i.e., substitutions,
+insertions, and deletions are allowed). The parameter k represents the maximum number of errors
+permitted in an alignment and will be provided when executing the program.
+For each read in the input dataset, the mapper must search the reference genome for candidate
+alignments whose edit distance to the read is at most the specified threshold k. However, the
+program should not report all such matches. Instead, it must report at most the two alignments
+with the smallest edit distance among all valid matches. If only one valid alignment exists within
+the error bound, only that alignment should be reported. If multiple alignments share the same
+minimal distance, the program may report any two of them. During evaluation, the same program
+will be executed multiple times with different values of k, typically ranging from k = 0 to k = 3.
+1
+When k = 0, the mapper must report only exact matches. For larger values of k, the program
+must identify approximate matches that satisfy the error bound and select the two best alignments
+according to their edit distance.
+Students are free to choose the algorithms and data structures used to implement their mapper.
+Possible strategies include direct genome scanning, indexing structures such as tries or suffix ar-
+rays, seed-and-extend approaches, or dynamic programming-based alignment techniques. The
+efficiency and clarity of the chosen implementation will be evaluated.
+3 Program Interface and Data
+To enable consistent evaluation of all submissions, every implementation must follow the same
+command-line interface. The main executable program must be called mapper. Students are free
+to design their implementation in different ways. The simplest approach is to perform the mapping
+directly using the reference genome in FASTA format without building any auxiliary data structure.
+In this case, the mapper reads the genome file, processes the sequencing reads, and reports the
+resulting alignments. The parameter -R specifies the reference genome, -i specifies the FASTQ file
+containing the sequencing reads, -o specifies the output SAM file where the alignments must be
+written, and -k indicates the maximum number of allowed errors in the alignment.
+mapper -R genome.fa -i input.fastq -o output.sam -k max-errors
+Students who wish to accelerate the mapping process may implement an index over the reference
+genome. In this case, the index construction must be performed by a separate program called
+indexer. This program reads the reference genome in FASTA format and produces an index file
+whose internal structure is defined by the student. The options -R and -I specify the reference
+genome and the file where the index will be stored, respectively. The time required to build the
+index will not be considered during evaluation and is assumed to be amortized across multiple
+mapping runs.
+indexer -R genome.fa -I genome.idx
+mapper -I genome.idx -i input.fastq -o output.sam -k max-errors
+The reference genome used in the project corresponds to the human reference assembly GRCh38
+(primary assembly) distributed by Ensembl and available at Ensembl GRCh38 primary assembly.
+Students should download and decompress this file before running their programs. Similarly, the
+sequencing reads correspond to a real sequencing dataset available at ERR194147 FASTQ dataset.
+For this project, only the first million reads (1M) of the dataset should be used. Since FASTQ
+records consist of four lines per read, this subset can be obtained with the following command:
+zcat ERR194147.fastq.gz | head -n 4000000 > reads_1M.fastq
+The program must produce the alignments in SAM format. To simplify the project, students are
+not required to implement the full SAM specification. Each alignment should be written as a
+simplified SAM-like record containing only a small subset of fields. Each output line must contain
+the read name, the reference sequence name (chromosome), the mapping position in the reference
+genome, the CIGAR string describing the alignment, the read sequence, and the base quality string.
+All other SAM fields, such as flags, mapping quality, mate information, and template length, are
+not required and should be omitted.
+If a read has two valid alignments within the error threshold k, the first alignment (the one with the
+smallest edit distance) should be written in the main fields of the record. The second alignment,
+if present, must be reported in an additional optional field at the end of the line. This field should
+contain the reference sequence name, the mapping position, and the corresponding CIGAR string
+of the secondary alignment. A typical output line produced by the mapper could therefore look as
+follows:
+2
+read0001 chr1 10523 100M ACTGACTG FFFFFFFF ALT:chr7,88321,98M1I1M
+In this example, the read read0001 aligns to chromosome chr1 at position 10523 with CIGAR string
+100M. The sequence and quality string correspond to the original FASTQ read. The optional field
+ALT:chr7,88321,98M1I1M indicates that a second alignment was also found on chromosome chr7
+at position 88321 with the specified CIGAR description.
+4 Algorithmic Components
+The implementation can leverage algorithms covered in the course. The efficiency and complexity
+of the implemented algorithms will be considered in the grading.
+• Indexing data structures (e.g., Tries, Suffix Arrays, FM-index) for efficient searching.
+• Approximate string matching using edit distance (Hamming/Levenshtein distance).
+• Sequence alignment using dynamic programming.
+Students may use Python or C++ for implementation. Using bioinformatics libraries such as
+Biopython (Python) or SeqAn (C++) is allowed but not required.
+5 Submission and Evaluation Criteria
+Students (or groups of up to 3 students) must submit their source code, along with a brief docu-
+mentation, to the professor’s email (santiago.marco@upc.edu). The submission should include a
+short README file that explains how to compile and run the program, lists the required depen-
+dencies, and provides a brief description of the implementation. The deadline for submission is
+the 26th of April.
+The project will be evaluated based on several aspects. First, the correctness of the implementation
+will be verified by checking that the mapper produces valid alignments according to the project’s
+specifications. Second, the efficiency of the solution will be considered, including both running
+time and memory usage. In addition, the evaluation will take into account the sophistication
+of the algorithmic techniques and data structures used in the implementation. Solutions that
+demonstrate thoughtful algorithmic design, appropriate data structures, and careful engineering
+will be positively valued. Students who produce a correct and complete solution that satisfies the
+project requirements may obtain the maximum project grade.
+In addition to this evaluation, a small competition will be organized among the submitted imple-
+mentations. The fastest implementation when mapping the evaluation dataset will receive an ad-
+ditional bonus of +1 point in the course’s final grade. A second bonus of +1 point will be awarded
+to the implementation that achieves the smallest peak memory usage while performing the same
+task. Students may submit two different implementations if they wish to compete independently
+in the two categories. However, most students will typically submit a single implementation that
+will automatically participate in both the running-time and memory-usage evaluations.
