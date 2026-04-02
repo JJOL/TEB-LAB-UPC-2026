@@ -13,3 +13,5 @@ Lab*/*.exe
 **/*.pyo
 **/*.pyd
 **/.DS_Store
+
+MapperProject/build/

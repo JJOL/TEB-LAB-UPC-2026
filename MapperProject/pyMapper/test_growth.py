@@ -22,7 +22,6 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 import matplotlib
-matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # ---------------------------------------------------------------------------
@@ -263,4 +262,5 @@ def main():
 
 
 if __name__ == "__main__":
+    matplotlib.use("Agg")
     main()
