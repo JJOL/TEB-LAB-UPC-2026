@@ -6,7 +6,7 @@ FASTAReader::FASTAReader(const std::string &filePath) {
     if (!file.is_open()) {
         throw std::runtime_error("Could not open file: " + filePath);
     }
-    nSeqs = 1;
+    nSeqs = 0;
     basesReadInChunk = 0;
     totalBasesRead = 0;
 
@@ -32,26 +32,16 @@ std::string FASTAReader::readChunk(size_t chunkSize) {
     // we read chunkSize or until we hit the next sequence header. If we hit the next sequence header, we stop and return what we have read so far.
     // currentLine ends at the next line or remaining part of the last line read. If currentLine is empty, we read the next line from the file.
     std::string chunk;
-    while (chunk.size() < chunkSize && !file.eof()) {
-        if (currentLine.empty()) {
-            std::getline(file, currentLine);
-            if (currentLine.empty()) {
-                continue; // Skip empty lines
-            }
-        }
-        if (currentLine[0] == '>') {
-            break; // Stop at the next sequence header
-        }
-        size_t remaining = chunkSize - chunk.size();
-        if (currentLine.size() <= remaining) {
+
+    while (chunk.size() < chunkSize && hasNextChunk()) {
+        if (chunk.size() + currentLine.size() <= chunkSize) {
             chunk += currentLine;
-            currentLine.clear();
+            std::getline(file, currentLine); // Move to the next line for the next read
         } else {
-            chunk += currentLine.substr(0, remaining);
-            currentLine = currentLine.substr(remaining);
-        }
+            size_t readSize = chunk.size();
+            chunk += currentLine.substr(0, chunkSize - readSize);
+            currentLine = currentLine.substr(chunkSize - readSize);}
     }
-    basesReadInChunk = chunk.size();
-    totalBasesRead += chunk.size();
+
     return chunk;
 }
