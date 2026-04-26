@@ -16,6 +16,7 @@ public:
     void readIndexFromFile(const std::string &indexFilePath);
     std::string getSequenceName() const { return sequenceName; }
     int getChunkNumber() const { return chunkNumber; }
+    int getKmerSize() const { return kmerSize; }
 public:
     std::unordered_map<std::string, std::vector<int>> kmerIndex;
 private:

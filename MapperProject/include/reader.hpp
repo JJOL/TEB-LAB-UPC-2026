@@ -25,6 +25,8 @@ private:
     int currentLineOffset; // Offset in the current line of the next base to read
     std::string currentLine;
     std::ifstream file;
+
+    bool pureAlphabetMode;
 };
 
 class FASTQReader {

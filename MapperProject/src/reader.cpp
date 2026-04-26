@@ -1,5 +1,6 @@
 #include "reader.hpp"
 #include <fstream>
+#include <iostream>
 
 FASTAReader::FASTAReader(const std::string &filePath) {
     file.open(filePath);
@@ -13,6 +14,8 @@ FASTAReader::FASTAReader(const std::string &filePath) {
     std::getline(file, currentLine);
     currentLineNumber = 0;
     currentLineOffset = 0;
+
+    pureAlphabetMode = true;
 }
 
 bool FASTAReader::hasNextSequence() const {
@@ -33,6 +36,19 @@ bool FASTAReader::hasNextChunk() const {
     return !file.eof() && !currentLine.empty() && currentLine[0] != '>';
 }
 
+void _normalizeAmbiguousBases(std::string &line) {
+    // replace all non AGCT characters with N.
+    char *lineData = line.data();
+    for (int i = 0; i < line.size(); i++) {
+        char c = lineData[i];
+        if (c == 'a' || c == 'g' || c == 'c' || c == 't') {
+            lineData[i] = toupper(c);
+        } else if (c != 'A' && c != 'G' && c != 'C' && c != 'T') {
+            lineData[i] = 'N';
+        }
+    }
+}
+
 std::string FASTAReader::readChunk(size_t chunkSize) {
     // we read chunkSize or until we hit the next sequence header. If we hit the next sequence header, we stop and return what we have read so far.
     // currentLine ends at the next line or remaining part of the last line read. If currentLine is empty, we read the next line from the file.
@@ -40,12 +56,14 @@ std::string FASTAReader::readChunk(size_t chunkSize) {
 
     while (chunk.size() < chunkSize && hasNextChunk()) {
         if (chunk.size() + currentLine.size() <= chunkSize) {
+            if (pureAlphabetMode) _normalizeAmbiguousBases(currentLine);
             chunk += currentLine;
             std::getline(file, currentLine); // Move to the next line for the next read
             currentLineNumber++; // Increment line number for the new line
             currentLineOffset = 0; // Reset line offset for the new line
         } else {
             size_t readSize = chunk.size();
+            if (pureAlphabetMode) _normalizeAmbiguousBases(currentLine);
             chunk += currentLine.substr(0, chunkSize - readSize);
             currentLine = currentLine.substr(chunkSize - readSize);
             currentLineOffset += chunkSize - readSize; // Update line offset for the next read
@@ -73,7 +91,7 @@ FASTQReader::FASTQReader(const std::string &filePath) {
 }
 
 bool FASTQReader::hasNext() const {
-    return !currentLine.empty();
+    return static_cast<bool>(file) && !currentLine.empty();
 }
 
 std::vector<ReadRecord> FASTQReader::readChunk(size_t chunkSize) {
@@ -84,16 +102,25 @@ std::vector<ReadRecord> FASTQReader::readChunk(size_t chunkSize) {
         std::string plusLine;
         std::string qualityScores;
 
-        std::getline(file, readSequence);
-        std::getline(file, plusLine);
-        std::getline(file, qualityScores);
-
+        if (!std::getline(file, readSequence) ||
+            !std::getline(file, plusLine) ||
+            !std::getline(file, qualityScores)) {
+            currentLine.clear();
+            break;
+        }
+        
         chunk.emplace_back(readName, readSequence, qualityScores);
-
         nReads++;
-        std::getline(file, currentLine); // Move to the next read
+
+        if (!std::getline(file, currentLine)) {
+            currentLine.clear();
+            break;
+        }
     }
-    nChunks++;
+    if (!chunk.empty()) {
+        nChunks++;
+    }
+
     return chunk;
 }
 

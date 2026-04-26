@@ -117,24 +117,6 @@ std::string loadReferenceSequenceChunk(const std::string &referencePath, const s
     return refSequence;
 }
 
-unsigned long long mismatchCount = 0;
-unsigned long long processedSeeds = 0;
-void dpExpand(const ReadSeedHit &seedHit, const std::string &refSequence, const std::string &refSequenceName) {
-    int readChunkId = std::get<0>(seedHit);
-    int readPosition = std::get<1>(seedHit);
-    int targetPosition = std::get<2>(seedHit);
-
-    processedSeeds++;
-    if (processedSeeds == ULLONG_MAX) {
-        std::cout << "Close to overflow: Processed " << processedSeeds << " seeds, mismatch count: " << mismatchCount << std::endl;
-        processedSeeds = 0;
-    }
-
-    // std::cout << "DP Expand - Read Chunk ID: " << readChunkId << ", Read Position: " << readPosition << ", Target Position: " << targetPosition << std::endl;
-    // std::cout << "Reference Sequence Name: " << refSequenceName << std::endl;
-    // std::cout << "Reference Sequence Length: " << refSequence.size() << std::endl;
-}
-
 void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
 
     // std::string reference = "ATGATGAAGTGTGTAGCTCGCGGCCGATCGACTGCACGTACGTAGCCGCGACGATCTAGCTATATATAGCTAGTCGATCGCGACTGCATGCATCGCCGTCGCTCCTCCCGAATAACTAGCTACAGATAGAGAGAGAGATCGACTAGCTACGATCGCACTGTTTGACCACTGCAG";
@@ -164,6 +146,7 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
 
     int kmerSize = std::stoi(argsMap.at("kmer_size"));
     int maxAllowedErrors = std::stoi(argsMap.at("max_errors"));
+    int refChunkSize = std::stoi(argsMap.at("chunk_size"));
     std::string readsPath = argsMap.at("reads");
     std::string samOutputPath = argsMap.at("sam_output_path");
     // Implement the mapping logic here using the provided arguments
@@ -214,14 +197,17 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     std::string refSequence;
 
     std::unordered_map<std::string, ReadBestMatches> readBestMatchesMap; // Map to store the best and second-best alignments for each read
-    std::vector<ReadSeedHit> seedHits;
+    
     int readsProcessed = 0;
+
     for (int i = 0; i < indexFiles.size(); ++i) {
-        // std::cout << "-- IndexChunk " << i << "/" << indexFiles.size()-1 << std::endl;
+    #ifdef DEBUG
+        std::cout << "-- IndexChunk " << i << "/" << indexFiles.size()-1 << std::endl;
+    #endif
         SimpleKmerIndexer indexer(kmerSize, "", i, -1, -1, -1);
         indexer.readIndexFromFile(indexFiles[i]);
         refSequenceName = indexer.getSequenceName();
-        refSequence = loadReferenceSequenceChunk(referencePath, refSequenceName, indexer.getChunkNumber(), 320);
+        refSequence = loadReferenceSequenceChunk(referencePath, refSequenceName, indexer.getChunkNumber(), refChunkSize);
 
         // if (refSequence.empty() || refSequenceName.compare(indexer.getSequenceName()) != 0) {
         //     refSequenceName = indexer.getSequenceName();
@@ -229,45 +215,103 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
         //     refSequence = loadReferenceSequence(referencePath, refSequenceName, 320);
         //     std::cout << "Loaded reference sequence with length: " << refSequence.size() << std::endl;
         // }
-        
+        std::unordered_map<int, std::tuple<std::string,std::string>> readSequencesMap; // Map to store readId->readSequence for all reads in the current chunk, to be used later when we have the seed hits and need to perform the DP alignment.
         for (int j = 0; j < readChunks.size(); ++j) {
-            // std::cout << "Processing READ chunk " << j << "/" << readChunks.size()-1 << std::endl;
-            // SEED STAGE: Generate seeds for each read in the chunk and find candidate positions in the reference using the index
-            
+            // std::cout << "Processing READ chunk " << j << "/" << readChunks.size()-1 << std::endl;            
             readsProcessed = 0;
-            seedHits.clear();
+            std::vector<ReadSeedHit> seedHits;
             for (const auto &read : readChunks[j]) {
                 const std::string &readName = std::get<0>(read);
                 const std::string &readSequence = std::get<1>(read);
+                readSequencesMap[readsProcessed] = std::make_tuple(readName, readSequence); // Initialize with empty string for additional info if needed
+
+                int qGramErrorThreshold = readSequence.size() - indexer.getKmerSize() + 1 - maxAllowedErrors * indexer.getKmerSize(); // This is the minimum number of shared k-mers required to consider a candidate position for alignment. It is derived from the fact that each error can affect at most k k-mers, so we need at least (readLength - k + 1) - (maxErrors * k) shared k-mers to have a chance of being within the max allowed errors.
+                std::unordered_map<int, int> refStartvotes;
 
                 // Seeding
                 for (int k = 0; k <= readSequence.size() - kmerSize; ++k) {
                     std::string kmer = readSequence.substr(k, kmerSize);
                     for (int pos : indexer.kmerIndex[kmer]) {
-                        seedHits.emplace_back(j, k, pos); // (readChunkId, readPosition, targetPosition)
+                        int diagonal = pos - k;
+                        refStartvotes[diagonal]++;
+                        // seedHits.emplace_back(j, k, pos); // (readChunkId, readPosition, targetPosition)
+                    }
+                }
+                // fast iterate over refStartVotes
+                for (const auto &[diagonal, votes] : refStartvotes) {
+                    int count = 0;
+                    for (int offset = diagonal - maxAllowedErrors; offset <= diagonal + maxAllowedErrors; ++offset) {
+                        if (refStartvotes.find(offset) != refStartvotes.end()) { // Weird way of counting the number of votes.
+                            count += refStartvotes[offset];
+                        }
+                        // better than count += refStartVotes[offset]?
+                        // idk because its more ifs, but perhaps is the same.
+                    }
+                    if (count >= qGramErrorThreshold) {
+                        // seed.
+                        seedHits.emplace_back(readsProcessed, i, diagonal); // (readId, chunkId, referenceStartPosition) 
                     }
                 }
                 
-                // std::cout << "Aligning with DP read '" << readName << "' with sequence: " << readSequence << std::endl;
-                auto alignment = dpSimpleSemiGlobalEditDistance(readSequence, refSequence);
+                readsProcessed++;
+                // #ifdef DEBUG
+                // std::cout << "Aligning with DP read '" << readName << "' with sequence: " << refSequenceName << std::endl;
+                // #endif
+                // auto alignment = dpSimpleSemiGlobalEditDistance(readSequence, refSequence);
+                // #ifdef DEBUG
+                // std::cout << "Done." << std::endl;
+                // #endif
+                // alignment.readName = readName;
+                // alignment.refName = refSequenceName;
+                // alignment.refStart += indexer.getChunkNumber() * refChunkSize; // Adjust the reference start position based on the chunk number and chunk size (320 in this case)
+
+                // // std::cout << "Read #" << readsProcessed << ": " << readName << std::endl;
+                // // std::cout << "Number of seed hits: " << seedHits.size() << std::endl;
+                // // std::cout << "Best alignment edit distance: " << alignment.editDistance << std::endl;
+                // // std::cout << "Best alignment read start: " << alignment.readStart << std::endl;
+                // // std::cout << "Best alignment reference start: " << alignment.refStart << std::endl;
+                // // std::cout << "Best alignment length: " << alignment.alignmentLength << std::endl;
+                // // std::cout << "Best alignment CIGAR string: " << alignment.cigarString << std::endl;
+
+                // if (alignment.editDistance != -1 && alignment.editDistance <= maxAllowedErrors) {
+                //     readBestMatchesMap[readName].updateBestAlignmentAgainst(alignment);
+                // }
+
+            }
+
+            // readId->sequence can be obtained from readSequences[readId] map.
+            // chunkId->reference sequence is loaded in refSequence variable.
+            // referencePosition has to be adjusted by pos-k to pos+len(read)+k to account for indels errors.
+            float avgDPWindowSize = 0;
+            for (const auto &seedHit : seedHits) {
+                int readId, refChunkId, refStart;
+                std::tie(readId, refChunkId, refStart) = seedHit;
+                const std::string &readName = std::get<0>(readSequencesMap[readId]);
+                const std::string &readSequence = std::get<1>(readSequencesMap[readId]);
+                
+                // build window around refStart - maxAllowedErrors to refStart + readSequence.size() + maxAllowedErrors
+                int windowStart = std::max(0, refStart - maxAllowedErrors);
+                int windowEnd = std::min(static_cast<int>(refSequence.size()), refStart + static_cast<int>(readSequence.size()) + maxAllowedErrors);
+                std::string refWindow = refSequence.substr(windowStart, windowEnd - windowStart);
+                avgDPWindowSize += refWindow.size();
+                // Perform DP on a smaller window.
+                auto alignment = dpSimpleSemiGlobalEditDistance(readSequence, refWindow);
                 alignment.readName = readName;
                 alignment.refName = refSequenceName;
-                alignment.refStart += indexer.getChunkNumber() * 320; // Adjust the reference start position based on the chunk number and chunk size (320 in this case)
-
-                // std::cout << "Read #" << readsProcessed << ": " << readName << std::endl;
-                // std::cout << "Number of seed hits: " << seedHits.size() << std::endl;
-                // std::cout << "Best alignment edit distance: " << alignment.editDistance << std::endl;
-                // std::cout << "Best alignment read start: " << alignment.readStart << std::endl;
-                // std::cout << "Best alignment reference start: " << alignment.refStart << std::endl;
-                // std::cout << "Best alignment length: " << alignment.alignmentLength << std::endl;
-                // std::cout << "Best alignment CIGAR string: " << alignment.cigarString << std::endl;
-
+                alignment.refStart += indexer.getChunkNumber() * refChunkSize + windowStart; // Adjust the reference start position based on the chunk number, chunk size and window start position.
                 if (alignment.editDistance != -1 && alignment.editDistance <= maxAllowedErrors) {
                     readBestMatchesMap[readName].updateBestAlignmentAgainst(alignment);
                 }
-
-                readsProcessed++;
             }
+#ifdef DEBUG
+            // print how many seeds (aka DP executions) are compared to number of processedReads. I want to see the ratio per chunk.
+            std::cout << "Processed " << readsProcessed << " reads in chunk " << j << "/" << readChunks.size()-1 << " with " << seedHits.size() << " seed hits (DP executions)." << std::endl;
+            // print avg size DP window
+            if (!seedHits.empty()) {
+                avgDPWindowSize /= seedHits.size();
+                std::cout << "Average DP window size: " << avgDPWindowSize << std::endl;
+            }
+#endif
         }
     }
 

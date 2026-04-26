@@ -3,14 +3,13 @@
 #include "indexer.hpp"
 #include "mapper.hpp"
 #include "reader.hpp"
-#define DEBUG
 
 void parseArguments(int argc, char **argv, std::unordered_map<std::string, std::string> &argsMap);
 void printUsage();
 void printArguments(int argc, char **argv, const std::unordered_map<std::string, std::string> &argsMap);
 
 int main(int argc, char **argv) {
-    std::cout << "SeqMapperAligner v0.0.0" << std::endl;
+    std::cout << "SeqMapperAligner v0.1.0" << std::endl;
     std::unordered_map<std::string, std::string> argsMap;
     parseArguments(argc, argv, argsMap);
 #ifdef DEBUG

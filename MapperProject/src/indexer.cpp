@@ -4,6 +4,8 @@
 #include <iostream>
 #include <fstream>
 
+void _normalizeAmbiguousBases(std::string &line);
+
 void createIndex(const std::unordered_map<std::string, std::string> &argsMap) {
     std::string referencePath = argsMap.at("reference");
     std::string indexPath = argsMap.at("index_path");
@@ -74,9 +76,13 @@ void SimpleKmerIndexer::indexSequenceChunk(const std::string &sequenceChunk) {
     int timesN = 0, localN = 0;
     int totalKmers = sequenceChunk.size() - kmerSize + 1;
     for (int i = 0; i < totalKmers; i++) { // goes from 0 to 10M - 10 + 1 = 9,999,991
+#ifdef DEBUG
         if (i % 500000 == 0) {
             std::cout << i << "/" << sequenceChunk.size() << "..." << std::endl;
         }
+#endif
+        std::string kmer = sequenceChunk.substr(i, kmerSize);
+        if (kmer.find('N') != std::string::npos) continue; // skip kmers with N
         kmerIndex[sequenceChunk.substr(i, kmerSize)].push_back(i);
     }
 }

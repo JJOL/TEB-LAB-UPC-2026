@@ -6,7 +6,7 @@
 
 // readQuality is only used to write to SAM output. It is not used in the mapping process, so it can be ignored in the FASTA reader.
 typedef std::tuple<std::string, std::string, std::string> ReadRecord; // (readName, readSequence, readQuality)
-typedef std::tuple<int, int, int> ReadSeedHit; // (readId, readPosition, targetPosition)
+typedef std::tuple<int, int, int> ReadSeedHit; // (readId, sequenceChunkId, referencePosition)
 
 struct ChromosomeInfo {
     std::string name;
