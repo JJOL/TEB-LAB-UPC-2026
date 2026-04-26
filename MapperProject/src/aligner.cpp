@@ -100,7 +100,7 @@ ReadAlignment alignReadToReference(const std::string &read, const std::string &r
             // First Align Priority: Match/Mismatch
             int matchCost = dpCostPtr[(i - 1) * (m + 1) + (j - 1)] + (read[i - 1] == reference[j - 1] ? 0 : 1);
             int insertCost = dpCostPtr[(i - 1) * (m + 1) + j] + 2; // Insertion cost
-            int deleteCost = dpCostPtr[i * (m + 1) + (j - 1)] + 2; //
+            int deleteCost = dpCostPtr[i * (m + 1) + (j - 1)] + 2; // Deletion cost
 
             dpCostPtr[i * (m + 1) + j] = MIN(MIN(matchCost, insertCost), deleteCost);
             dpParent[i * (m + 1) + j] = (dpCostPtr[i * (m + 1) + j] == matchCost) ? 0 : 

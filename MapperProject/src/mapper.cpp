@@ -18,7 +18,9 @@ std::vector<std::string> collectIndexFilePaths(const std::string &indexPath) {
     std::vector<std::string> indexFiles;
 
     std::string parentDirectory = indexPath.substr(0, indexPath.find_last_of('/'));
+#ifdef DEBUG
     std::cout << "Parent Directory: " << parentDirectory << std::endl;
+#endif
     std::string fileNamePrefix = indexPath.substr(indexPath.find_last_of('/') + 1);
 
     for (const auto &entry : std::filesystem::directory_iterator(parentDirectory)) {
@@ -87,11 +89,15 @@ std::string loadReferenceSequenceChunk(const std::string &referencePath, const s
     std::string refSequence;
     FASTAReader fastaReader(referencePath);
 
-    std::cout << "Loading reference sequence chunk: " << refSequenceName << ", chunk ID: " << chunkId << " from file: " << referencePath << std::endl;
+#ifdef DEBUG
+    std::cout << "Attempting to load reference sequence chunk: " << refSequenceName << ", chunk ID: " << chunkId << " from file: " << referencePath << std::endl;
+#endif
     while (fastaReader.hasNextSequence()) {
         std::string sequenceName = fastaReader.readSequenceName();
         if (sequenceName.compare(refSequenceName) == 0) {
+#ifdef DEBUG
             std::cout << "Found matching reference sequence: " << sequenceName << std::endl;
+#endif
             int currentChunkId = 0;
             while (fastaReader.hasNextChunk()) {
                 std::string chunk = fastaReader.readChunk(chunkSize); // Use the same
@@ -160,12 +166,14 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     std::string readsPath = argsMap.at("reads");
     std::string samOutputPath = argsMap.at("sam_output_path");
     // Implement the mapping logic here using the provided arguments
+#ifdef DEBUG
     std::cout << "Mapping reads with the following parameters:" << std::endl;
     std::cout << "Reference Path: " << referencePath << std::endl;
     std::cout << "Index Path: " << indexPath << std::endl;
     std::cout << "K-mer Size: " << kmerSize << std::endl;
     std::cout << "Reads Path: " << readsPath << std::endl;
     std::cout << "SAM Output Path: " << samOutputPath << std::endl;
+#endif
 
     std::vector<std::string> whitelistSequences;
     if (!sequencesWhitelistString.empty()) {
@@ -175,23 +183,29 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     // ------------------ Collect Index Files ----------------- //
     std::vector<std::string> indexFiles = collectIndexFilePaths(indexPath);
     indexFiles = filterIndexFilesByWhitelist(indexFiles, whitelistSequences);
+#ifdef DEBUG
     std::cout << "Collected " << indexFiles.size() << " index files." << std::endl;
     for (const auto &file : indexFiles) {
         std::cout << "- Index File: " << file << std::endl;
     }
-
+#endif
 
     // ------------------ Read FASTQ File in Chunks ----------------- //
+    std::cout << "Reading reads from FASTQ file: " << readsPath << std::endl;
     const int READS_CHUNK_SIZE = 10000; // This is because 10,000 x 101 (read length) = 10,000,000 bases. Similar to the chunk size used for the reference sequences.
+#ifdef DEBUG
     std::cout << "Starting to read FASTQ file: " << readsPath << std::endl;
+#endif
     std::vector<std::vector<ReadRecord>> readChunks;
     {
         FASTQReader qReader(readsPath);
         while (qReader.hasNext()) {
             readChunks.push_back(qReader.readChunk(READS_CHUNK_SIZE));
         }
+#ifdef DEBUG
         std::cout << "Finished reading FASTQ file." << std::endl;
         std::cout << "Read " << qReader.getNumReads() << " reads divided into " << qReader.getNumChunks() << " chunks." << std::endl;
+#endif
     }
 
     std::string refSequenceName;
@@ -201,7 +215,7 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     std::vector<ReadSeedHit> seedHits;
     int readsProcessed = 0;
     for (int i = 0; i < indexFiles.size(); ++i) {
-        std::cout << "-- IndexChunk " << i << "/" << indexFiles.size()-1 << std::endl;
+        // std::cout << "-- IndexChunk " << i << "/" << indexFiles.size()-1 << std::endl;
         SimpleKmerIndexer indexer(kmerSize, "", i, -1, -1, -1);
         indexer.readIndexFromFile(indexFiles[i]);
         refSequenceName = indexer.getSequenceName();
@@ -215,7 +229,7 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
         // }
         
         for (int j = 0; j < readChunks.size(); ++j) {
-            std::cout << "Processing READ chunk " << j << "/" << readChunks.size()-1 << std::endl;
+            // std::cout << "Processing READ chunk " << j << "/" << readChunks.size()-1 << std::endl;
             // SEED STAGE: Generate seeds for each read in the chunk and find candidate positions in the reference using the index
             
             readsProcessed = 0;
@@ -238,61 +252,22 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
                 alignment.refName = refSequenceName;
                 alignment.refStart += indexer.getChunkNumber() * 320; // Adjust the reference start position based on the chunk number and chunk size (320 in this case)
 
-                std::cout << "Read #" << readsProcessed << ": " << readName << std::endl;
-                std::cout << "Number of seed hits: " << seedHits.size() << std::endl;
-                std::cout << "Best alignment edit distance: " << alignment.editDistance << std::endl;
-                std::cout << "Best alignment read start: " << alignment.readStart << std::endl;
-                std::cout << "Best alignment reference start: " << alignment.refStart << std::endl;
-                std::cout << "Best alignment length: " << alignment.alignmentLength << std::endl;
-                std::cout << "Best alignment CIGAR string: " << alignment.cigarString << std::endl;
+                // std::cout << "Read #" << readsProcessed << ": " << readName << std::endl;
+                // std::cout << "Number of seed hits: " << seedHits.size() << std::endl;
+                // std::cout << "Best alignment edit distance: " << alignment.editDistance << std::endl;
+                // std::cout << "Best alignment read start: " << alignment.readStart << std::endl;
+                // std::cout << "Best alignment reference start: " << alignment.refStart << std::endl;
+                // std::cout << "Best alignment length: " << alignment.alignmentLength << std::endl;
+                // std::cout << "Best alignment CIGAR string: " << alignment.cigarString << std::endl;
 
                 readBestMatchesMap[readName].updateBestAlignmentAgainst(alignment);
 
                 readsProcessed++;
             }
-            
-            // Expand Non-GAP filter. We try to expand the seed from right and count number of mismatches until we reach a gap or exceed a certain threshold of mismatches. This can help to filter out seed hits that are unlikely to lead to good alignments.
-            // int MISMATCH_THRESHOLD = 10; // This is an example threshold, you can adjust it based on your needs.
-            // int MAX_EXTENSION_LENGTH = 45; // This is an example maximum extension length, you can adjust it based on your needs.
-            // std::vector<ReadSeedHit> filteredSeedHits;
-            // for (const auto &hit : seedHits) {
-            //     int readChunkId = std::get<0>(hit);
-            //     int readPosition = std::get<1>(hit);
-            //     int targetPosition = std::get<2>(hit);
-
-            //     const std::string &readSequence = std::get<1>(reads[readChunkId][0]); // Get the read sequence from the first read in the chunk (you can modify this to get the correct read sequence based on your data structure)
-            //     // Here you would implement the logic to expand the seed hit and count mismatches until you reach a gap or exceed the mismatch threshold.
-            //     // If the seed hit passes the filter, you can add it to the filteredSeedHits vector for further processing in the DP alignment stage.
-            //     int mismatches = 0;
-            //     int extensionLength = 0;
-            //     while (extensionLength < MAX_EXTENSION_LENGTH && mismatches <= MISMATCH_THRESHOLD) {
-            //     }
-                    
-            // }
-            // for now, copy all seed hits to filteredSeedHits without filtering to test the mapping.
-            // for (const auto &hit : seedHits) {
-            //     filteredSeedHits.push_back(hit);
-            // }
-
-
-
-
-            // FILTER STAGE: Filter candidate positions based on the number of shared seeds or other heuristics
-            // DP ALIGN STAGE: Perform dynamic programming alignment (e.g., Smith-Waterman) for the remaining candidate positions to find the best alignment
-            // WRITE STAGE: Write the alignment results to the SAM output file
-            // std::cout << "Found " << seedHits.size() << " seed hits for REF chunk 0, #reads:" << reads.size() << std::endl;
-            // // compute avarage hits per read and max hits per read
-            // float avgHitsPerRead = (float)(seedHits.size()) / reads.size();
-            // std::cout << "Average hits per read: " << avgHitsPerRead << std::endl;
-            // // print amount of seed hits found for this chunk
-            // for (int j = 0; j < seedHits.size(); j++) {
-            //     ReadAlignment alignment = alignReadToReference(std::get<1>(reads[std::get<0>(seedHits[j])][0]), refSequence);
-            // }
         }
-
-        // std::cout << "Total processed seeds: " << processedSeeds << ", Total mismatches: " << mismatchCount << std::endl;
     }
 
+#ifdef DEBUG
     std::cout << "\n\n================================================================" << std::endl;
     std::cout << "               FINAL BEST ALIGNMENTS PER READ                  " << std::endl;
     std::cout << "================================================================" << std::endl;
@@ -326,7 +301,9 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
             // Here you would implement the logic to write the best alignment for this read to the SAM output file.
         }
     }
+#endif
 
+    std::cout << "Writing alignments to SAM output file: " << samOutputPath << std::endl;
     writeAlignmentsToSAM(readChunks, readBestMatchesMap, samOutputPath);
 
 

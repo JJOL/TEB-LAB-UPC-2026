@@ -26,7 +26,7 @@ void writeAlignmentsToSAM(
         for (const auto &read : chunk) {
             const std::string &readName = std::get<0>(read);
             const std::string &readSequence = std::get<1>(read);
-            const std::string readQuality(readSequence.size(), 'F'); // Placeholder quality string
+            const std::string &readQuality = std::get<2>(read); // Placeholder quality string, can be ignored for FASTA reads
 
             if (readBestMatchesMap.find(readName) != readBestMatchesMap.end()) {
                 const ReadBestMatches &bestMatches = readBestMatchesMap.at(readName);

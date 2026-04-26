@@ -88,7 +88,7 @@ std::vector<ReadRecord> FASTQReader::readChunk(size_t chunkSize) {
         std::getline(file, plusLine);
         std::getline(file, qualityScores);
 
-        chunk.emplace_back(readName, readSequence);
+        chunk.emplace_back(readName, readSequence, qualityScores);
 
         nReads++;
         std::getline(file, currentLine); // Move to the next read

@@ -153,9 +153,11 @@ void SimpleKmerIndexer::_readEfficientLaterLoadIndexFile(std::ifstream &indexFil
     int count;
     int kmersRead = 0;
     while (indexFile.read(kmerString, kmerSize)) {
+#ifdef DEBUG
         if (kmersRead % 50000 == 0) {
             std::cout << "Read " << kmersRead << " kmers from file..." << std::endl;
         }
+#endif
         indexFile.read(reinterpret_cast<char*>(&count), sizeof(count)); // Read the number of positions
         std::vector<int> positions(count);
         indexFile.read(reinterpret_cast<char*>(positions.data()), count * sizeof(int)); // Read the positions as binary data
@@ -167,12 +169,16 @@ void SimpleKmerIndexer::_readEfficientLaterLoadIndexFile(std::ifstream &indexFil
 void SimpleKmerIndexer::readIndexFromFile(const std::string &indexFilePath) {
     // Placeholder for reading the index from a file
     // You can implement the logic to read the index file and populate the kmerIndex map here
+#ifdef DEBUG
     std::cout << "Reading index from file: " << indexFilePath << std::endl;
+#endif
     std::ifstream indexFile(indexFilePath, std::ios::binary);
     if (!indexFile.is_open()) {
         std::cerr << "Error: Could not open index file " << indexFilePath << std::endl;
         return;
     }
     _readEfficientLaterLoadIndexFile(indexFile);
+#ifdef DEBUG
     std::cout << "Finished reading index from file. Total kmers read: " << kmerIndex.size() << std::endl;
+#endif
 }
