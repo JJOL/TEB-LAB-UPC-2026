@@ -163,6 +163,7 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     std::string indexPath = argsMap.at("index_path");
 
     int kmerSize = std::stoi(argsMap.at("kmer_size"));
+    int maxAllowedErrors = std::stoi(argsMap.at("max_errors"));
     std::string readsPath = argsMap.at("reads");
     std::string samOutputPath = argsMap.at("sam_output_path");
     // Implement the mapping logic here using the provided arguments
@@ -170,6 +171,7 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
     std::cout << "Mapping reads with the following parameters:" << std::endl;
     std::cout << "Reference Path: " << referencePath << std::endl;
     std::cout << "Index Path: " << indexPath << std::endl;
+    std::cout << "Max Allowed Errors: " << maxAllowedErrors << std::endl;
     std::cout << "K-mer Size: " << kmerSize << std::endl;
     std::cout << "Reads Path: " << readsPath << std::endl;
     std::cout << "SAM Output Path: " << samOutputPath << std::endl;
@@ -260,7 +262,9 @@ void mapReads(const std::unordered_map<std::string, std::string> &argsMap) {
                 // std::cout << "Best alignment length: " << alignment.alignmentLength << std::endl;
                 // std::cout << "Best alignment CIGAR string: " << alignment.cigarString << std::endl;
 
-                readBestMatchesMap[readName].updateBestAlignmentAgainst(alignment);
+                if (alignment.editDistance != -1 && alignment.editDistance <= maxAllowedErrors) {
+                    readBestMatchesMap[readName].updateBestAlignmentAgainst(alignment);
+                }
 
                 readsProcessed++;
             }

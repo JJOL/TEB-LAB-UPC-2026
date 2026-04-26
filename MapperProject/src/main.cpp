@@ -64,7 +64,8 @@ void parseArguments(int argc, char **argv, std::unordered_map<std::string, std::
         {"-I", "index_path"},
         {"-i", "reads"},
         {"-O", "sam_output_path"},
-        {"-S", "sequences_whitelist"},
+        {"-k", "max_errors"},
+        {"-S", "whitelist"},
         {"--kmer-size", "kmer_size"},
         {"--ref-chunk-size", "chunk_size"},
         // Add more options as needed
@@ -91,6 +92,7 @@ void printUsage() {
     std::cout << "  -O               SAM output file path" << std::endl;
     std::cout << "  -i               Reads file (FASTQ)" << std::endl;
     std::cout << "  -S               Reference whitelist sequence names" << std::endl;
+    std::cout << "  -k               Maximum allowed errors" << std::endl;
     std::cout << "  --kmer-size      K-mer size" << std::endl;
     std::cout << "  --ref-chunk-size Reference chunk size" << std::endl;
 }
