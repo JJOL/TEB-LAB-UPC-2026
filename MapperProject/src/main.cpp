@@ -1,6 +1,8 @@
 #include <iostream>
 #include <unordered_map>
 #include "indexer.hpp"
+#include "mapper.hpp"
+#include "reader.hpp"
 #define DEBUG
 
 void parseArguments(int argc, char **argv, std::unordered_map<std::string, std::string> &argsMap);
@@ -27,7 +29,15 @@ int main(int argc, char **argv) {
         createIndex(argsMap);
     } else if (argsMap["subcommand"] == "mapper") {
         std::cout << "Aligning reads to reference genome..." << std::endl;
-        // Call alignment function here
+        mapReads(argsMap);
+    } else if (argsMap["subcommand"] == "chromosomer") {
+        std::cout << "Looking for chromosomes in reference genome file: " << argsMap["reference"] << std::endl;
+        auto chromosomes = findChromosomesInFASTA(argsMap["reference"]);
+
+        std::cout << "Found " << chromosomes.size() << " chromosomes in the reference genome." << std::endl;
+        for (const auto &chromosome : chromosomes) {
+            std::cout << "Chromosome: " << chromosome.name << ", Length: " << chromosome.length << ", Offset: " << chromosome.offset << std::endl;
+        }
     } else {
         std::cerr << "Unknown subcommand: " << argsMap["subcommand"] << std::endl;
         printUsage();
@@ -52,7 +62,9 @@ void parseArguments(int argc, char **argv, std::unordered_map<std::string, std::
         {"-h", "help"},
         {"-R", "reference"},
         {"-I", "index_path"},
+        {"-i", "reads"},
         {"-O", "sam_output_path"},
+        {"-S", "sequences_whitelist"},
         {"--kmer-size", "kmer_size"},
         {"--ref-chunk-size", "chunk_size"},
         // Add more options as needed
@@ -77,6 +89,8 @@ void printUsage() {
     std::cout << "  -R               Reference genome file" << std::endl;
     std::cout << "  -I               Index file path" << std::endl;
     std::cout << "  -O               SAM output file path" << std::endl;
+    std::cout << "  -i               Reads file (FASTQ)" << std::endl;
+    std::cout << "  -S               Reference whitelist sequence names" << std::endl;
     std::cout << "  --kmer-size      K-mer size" << std::endl;
     std::cout << "  --ref-chunk-size Reference chunk size" << std::endl;
 }
